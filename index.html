@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fantasy Golf Draft — Duck Race</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #071320;
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 16px;
+      background: rgba(0,0,0,0.55);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    #hdr h1 { font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+    #seed-box {
+      font-size: 0.68rem;
+      color: #7fb3d3;
+      font-family: monospace;
+      text-align: right;
+      line-height: 1.6;
+      flex-shrink: 0;
+    }
+
+    #stage { flex: 1; position: relative; overflow: hidden; }
+    #cv    { display: block; width: 100%; height: 100%; }
+
+    /* ── Countdown ── */
+    #pre {
+      position: absolute; inset: 0;
+      background: rgba(7,19,32,0.90);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; z-index: 5; padding: 16px;
+    }
+    #pre h2 {
+      font-size: 0.9rem; letter-spacing: 3px;
+      text-transform: uppercase; color: #7fb3d3;
+    }
+    #timer {
+      font-size: 3.8rem; font-weight: 800;
+      color: #FFD700; letter-spacing: 5px;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 24px rgba(255,215,0,0.35);
+    }
+    #pgrid {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      gap: 5px; max-width: 660px; width: 100%;
+    }
+    .pcrd {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-left-width: 3px;
+      border-radius: 5px; padding: 5px 8px;
+      font-size: 0.77rem; text-align: center;
+    }
+    #sbtn {
+      padding: 10px 28px; background: #FFD700; color: #111;
+      border: none; border-radius: 7px;
+      font-size: 0.9rem; font-weight: 700; cursor: pointer;
+      touch-action: manipulation;
+    }
+    #sbtn:hover, #sbtn:active { background: #f5c800; }
+
+    /* ── GO overlay ── */
+    .go-ol {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9rem; font-weight: 900; color: #FFD700;
+      text-shadow: 0 0 50px rgba(255,215,0,0.6);
+      background: rgba(7,19,32,0.5);
+      z-index: 8; pointer-events: none;
+    }
+
+    /* ── Results ── */
+    #res {
+      position: absolute; inset: 0;
+      background: rgba(7,19,32,0.96);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; z-index: 9;
+      padding: 16px; overflow-y: auto;
+    }
+    #res.on { display: flex; }
+    #res h2 { font-size: 1.55rem; font-weight: 800; color: #FFD700; }
+    #res-sub { font-size: 0.68rem; color: #556677; font-family: monospace; text-align: center; }
+    #rgrid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 7px; max-width: 720px; width: 100%;
+    }
+    .rcrd {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; padding: 9px 13px;
+      display: flex; align-items: center; gap: 9px;
+    }
+    .rcrd.g { border-color: #FFD700; background: rgba(255,215,0,0.1); }
+    .rcrd.s { border-color: #bbb;    background: rgba(192,192,192,0.07); }
+    .rcrd.b { border-color: #cd7f32; background: rgba(205,127,50,0.07); }
+    .rpk { font-size: 1.25rem; font-weight: 900; min-width: 26px; color: #FFD700; }
+    .rnm { font-size: 0.86rem; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Results action buttons ── */
+    #res-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+    .res-btn {
+      padding: 9px 22px; border: none; border-radius: 7px;
+      font-size: 0.88rem; font-weight: 700; cursor: pointer;
+      touch-action: manipulation;
+    }
+    .res-btn.primary   { background: #FFD700; color: #111; }
+    .res-btn.secondary { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); }
+    .res-btn:hover { opacity: 0.85; }
+    #rec-status {
+      font-size: 0.7rem; color: #FF4757;
+      font-family: monospace; letter-spacing: 1px;
+      display: none;
+    }
+    #rec-status.on { display: block; }
+
+    /* ── Mobile ── */
+    @media (max-width: 600px) {
+      #hdr h1  { font-size: 0.88rem; }
+      #seed-box { display: none; }
+      #timer   { font-size: 2.6rem; letter-spacing: 3px; }
+      #pgrid   { grid-template-columns: repeat(3, 1fr); }
+      #rgrid   { grid-template-columns: repeat(2, 1fr); }
+      .go-ol   { font-size: 5rem; }
+    }
+    @media (max-width: 380px) {
+      #pgrid { grid-template-columns: repeat(2, 1fr); }
+      #rgrid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="hdr">
+  <h1>&#127956; Fantasy Golf Draft — Duck Race</h1>
+  <div id="seed-box">
+    Race seed: <strong id="sv">…</strong><br>
+    May 13 2026 · 10:30 AM CST
+  </div>
+</div>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <div id="pre">
+    <h2>Race begins in</h2>
+    <div id="timer">--:--</div>
+    <div id="pgrid"></div>
+    <button id="sbtn" onclick="triggerRace()">&#9654; Start Now (Testing)</button>
+  </div>
+
+  <div id="res">
+    <h2>&#127942; Draft Order</h2>
+    <div id="res-sub">Seed <span id="rseed"></span> &nbsp;·&nbsp; May 13 2026 10:30 AM CST</div>
+    <div id="rgrid"></div>
+    <div id="res-actions">
+      <button class="res-btn primary" onclick="replay()">&#8635; Replay Race</button>
+      <button class="res-btn secondary" id="dl-btn" style="display:none" onclick="downloadVideo()">&#11015; Download Video</button>
+    </div>
+    <div id="rec-status">&#9679; REC — recording in progress…</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIG  ← edit NAMES here before hosting
+// ═══════════════════════════════════════════════════
+const RACE_ISO = '2026-05-13T10:30:00-06:00';   // CST = UTC-6
+
+const NAMES = [
+  'Player 1',  'Player 2',  'Player 3',
+  'Player 4',  'Player 5',  'Player 6',
+  'Player 7',  'Player 8',  'Player 9',
+  'Player 10', 'Player 11', 'Player 12',
+  'Player 13', 'Player 14', 'Player 15',
+];
+
+const DUCK_COLORS = [
+  '#FFD700','#FF4757','#2ED573','#FF6348','#1E90FF',
+  '#FF69B4','#7BED9F','#A29BFE','#FFA502','#00CDAC',
+  '#FF78CB','#60A3BC','#E17055','#BADC58','#C44569',
+];
+
+// ═══════════════════════════════════════════════════
+//  SEEDED RNG (Mulberry32)
+//
+//  The seed is derived from the pre-announced race
+//  timestamp — immutable before the event starts.
+//  Every viewer gets the SAME race because the seed
+//  is identical for everyone. The result is "random"
+//  (generated by a PRNG), but locked in advance so
+//  nobody — including the host — can influence it.
+// ═══════════════════════════════════════════════════
+function mkRng(seed) {
+  let s = seed | 0;
+  return () => {
+    s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+const RACE_TS = new Date(RACE_ISO).getTime();
+const SEED    = RACE_TS % 2147483647;
+const rng     = mkRng(SEED);
+
+document.getElementById('sv').textContent    = SEED;
+document.getElementById('rseed').textContent = SEED;
+
+// ═══════════════════════════════════════════════════
+//  DUCK DATA (all RNG consumed here at page load)
+// ═══════════════════════════════════════════════════
+const SEG_FRAMES = 45;
+const SEG_COUNT  = 400;
+const BASE_V     = 0.60;
+
+const ducks = NAMES.map((name, i) => ({
+  name,
+  color: DUCK_COLORS[i % DUCK_COLORS.length],
+  bf   : 0.88 + rng() * 0.24,
+  seq  : Array.from({ length: SEG_COUNT }, () => 0.78 + rng() * 0.44),
+  x    : 0,
+  done : false,
+  rank : 0,
+}));
+
+// ═══════════════════════════════════════════════════
+//  CANVAS
+// ═══════════════════════════════════════════════════
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H, LH, PL, PR, TW;
+
+new ResizeObserver(() => {
+  W  = cv.width  = cv.offsetWidth;
+  H  = cv.height = cv.offsetHeight;
+  LH = H / ducks.length;
+  PL = Math.min(170, Math.max(55, W * 0.16));
+  PR = 48;
+  TW = W - PL - PR;
+}).observe(cv);
+
+// ═══════════════════════════════════════════════════
+//  RUBBER DUCK DRAWING (faces right)
+// ═══════════════════════════════════════════════════
+function shadeHex(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16)         + amt));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + amt));
+  const b = Math.max(0, Math.min(255, (n & 0xff)        + amt));
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+function drawDucky(cx, cy, size, color) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  const lw   = Math.max(0.5, size * 0.04);
+  const dark = shadeHex(color, -30);
+
+  // body
+  ctx.beginPath();
+  ctx.ellipse(0, 0, size * 0.52, size * 0.35, 0, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+  ctx.lineWidth = lw;
+  ctx.stroke();
+
+  // wing
+  ctx.beginPath();
+  ctx.ellipse(-size * 0.06, size * 0.04, size * 0.21, size * 0.13, -0.2, 0, Math.PI * 2);
+  ctx.fillStyle = dark;
+  ctx.fill();
+
+  // head
+  const hx = size * 0.22, hy = -size * 0.28, hr = size * 0.23;
+  ctx.beginPath();
+  ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+  ctx.lineWidth = lw;
+  ctx.stroke();
+
+  // beak (pointing right)
+  const bx = hx + hr * 0.72;
+  ctx.beginPath();
+  ctx.moveTo(bx,              hy - hr * 0.18);
+  ctx.lineTo(bx + hr * 0.78, hy + hr * 0.06);
+  ctx.lineTo(bx,              hy + hr * 0.30);
+  ctx.closePath();
+  ctx.fillStyle = '#FF8C00';
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = lw * 0.7;
+  ctx.fill();
+  ctx.stroke();
+
+  // eye
+  const er = Math.max(1.2, size * 0.048);
+  const ex = hx + hr * 0.32, ey = hy - hr * 0.18;
+  ctx.beginPath();
+  ctx.arc(ex, ey, er, 0, Math.PI * 2);
+  ctx.fillStyle = '#111';
+  ctx.fill();
+
+  // eye shine
+  ctx.beginPath();
+  ctx.arc(ex + er * 0.38, ey - er * 0.4, er * 0.42, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════
+let renderTick = 0, wave = 0;
+
+function render() {
+  renderTick++;
+  ctx.clearRect(0, 0, W, H);
+
+  for (let i = 0; i < ducks.length; i++) {
+    const y = i * LH;
+    ctx.fillStyle = i % 2 === 0 ? '#14456b' : '#123d60';
+    ctx.fillRect(0, y, W, LH);
+
+    // shimmer wave
+    ctx.save();
+    ctx.globalAlpha = 0.07;
+    ctx.strokeStyle = '#b0e0ff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 2) {
+      const wy = y + LH * 0.5 + Math.sin(x * 0.025 + wave + i * 0.8) * 3;
+      x === 0 ? ctx.moveTo(x, wy) : ctx.lineTo(x, wy);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    if (i > 0) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // name label (auto-truncate if narrow)
+    const nfs = Math.max(9, Math.min(LH * 0.3, 13));
+    ctx.font = `${nfs}px Segoe UI`;
+    ctx.fillStyle = 'rgba(255,255,255,0.58)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const maxW = PL - 10;
+    let label = ducks[i].name;
+    while (label.length > 2 && ctx.measureText(label).width > maxW) label = label.slice(0, -1);
+    if (label !== ducks[i].name) label += '…';
+    ctx.fillText(label, 6, y + LH * 0.5);
+  }
+
+  // checkered finish line
+  const fx = PL + TW;
+  const sq = Math.max(5, LH / 3.5);
+  for (let r = 0; r * sq < H + sq; r++) {
+    for (let c = 0; c * sq < PR + sq; c++) {
+      ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.88)';
+      ctx.fillRect(fx + c * sq, r * sq, sq, sq);
+    }
+  }
+
+  // live rankings
+  const byPos   = [...ducks].sort((a, b) => b.x - a.x);
+  const livePos = new Map(byPos.map((d, i) => [d, i + 1]));
+  const duckSz  = Math.max(12, Math.min(LH * 0.62, 30));
+
+  ducks.forEach((duck, i) => {
+    const px  = PL + (duck.x / 1000) * TW;
+    const py  = i * LH + LH * 0.5;
+    const bob = Math.sin(renderTick * 0.1 + i * 0.9) * Math.max(1, LH * 0.055);
+
+    drawDucky(px, py + bob, duckSz, duck.color);
+
+    if (!duck.done) {
+      ctx.fillStyle = 'rgba(255,255,255,0.48)';
+      ctx.font = `${Math.max(7, LH * 0.18)}px Segoe UI`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(livePos.get(duck), px, py + duckSz * 0.38);
+    }
+
+    if (duck.done) {
+      ctx.fillStyle = duck.rank === 1 ? '#FFD700'
+                    : duck.rank <= 3  ? '#c0c0c0'
+                                      : 'rgba(255,255,255,0.5)';
+      ctx.font = `bold ${Math.max(9, LH * 0.28)}px Segoe UI`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('#' + duck.rank, fx + 4, py);
+    }
+  });
+
+  wave += 0.033;
+}
+
+// ═══════════════════════════════════════════════════
+//  VIDEO RECORDING
+// ═══════════════════════════════════════════════════
+let mediaRecorder  = null;
+let recordedChunks = [];
+let recordingBlob  = null;
+let recordingMime  = '';
+
+function startRecording() {
+  if (!window.MediaRecorder || !cv.captureStream) return;
+  const mime = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4']
+    .find(t => MediaRecorder.isTypeSupported(t));
+  if (!mime) return;
+
+  recordedChunks = [];
+  recordingBlob  = null;
+  recordingMime  = mime;
+
+  try {
+    const stream = cv.captureStream(60);
+    mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      recordingBlob = new Blob(recordedChunks, { type: recordingMime });
+      document.getElementById('rec-status').classList.remove('on');
+      document.getElementById('dl-btn').style.display = '';
+    };
+    mediaRecorder.start(500);
+    document.getElementById('rec-status').classList.add('on');
+  } catch (e) {
+    mediaRecorder = null;
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+
+function downloadVideo() {
+  if (!recordingBlob) return;
+  const ext = recordingMime.includes('mp4') ? 'mp4' : 'webm';
+  const url = URL.createObjectURL(recordingBlob);
+  const a   = document.createElement('a');
+  a.href = url; a.download = 'duck-race.' + ext;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// ═══════════════════════════════════════════════════
+//  RACE ENGINE
+// ═══════════════════════════════════════════════════
+let frame = 0, placed = 0, racing = false;
+
+function step() {
+  const seg = Math.floor(frame / SEG_FRAMES);
+  ducks.forEach(d => {
+    if (d.done) return;
+    d.x += d.bf * d.seq[seg % SEG_COUNT] * BASE_V;
+    if (d.x >= 1000) { d.x = 1000; d.done = true; d.rank = ++placed; }
+  });
+  frame++;
+}
+
+function raceLoop() {
+  step();
+  render();
+  if (placed < ducks.length) requestAnimationFrame(raceLoop);
+  else setTimeout(showResults, 1400);
+}
+
+function triggerRace() {
+  if (racing) return;
+  racing = true;
+  document.getElementById('pre').style.display = 'none';
+
+  const stage = document.getElementById('stage');
+  const el = document.createElement('div');
+  el.className = 'go-ol';
+  stage.appendChild(el);
+
+  const steps = ['3', '2', '1', 'GO!'];
+  let i = 0;
+  el.textContent = steps[0];
+
+  const iv = setInterval(() => {
+    i++;
+    if (i < steps.length) el.textContent = steps[i];
+    if (i === steps.length - 1) {
+      clearInterval(iv);
+      setTimeout(() => {
+        el.remove();
+        startRecording();
+        requestAnimationFrame(raceLoop);
+      }, 700);
+    }
+  }, 900);
+}
+
+// ═══════════════════════════════════════════════════
+//  RESULTS
+// ═══════════════════════════════════════════════════
+function showResults() {
+  stopRecording();
+
+  const medals = ['g', 's', 'b'];
+  const sorted = [...ducks].sort((a, b) => a.rank - b.rank);
+  document.getElementById('rgrid').innerHTML = sorted.map(d =>
+    '<div class="rcrd ' + (medals[d.rank - 1] || '') + '">' +
+      '<div class="rpk">' + d.rank + '</div>' +
+      '<div class="rnm">' +
+        '<span class="dot" style="background:' + d.color + '"></span>' +
+        d.name +
+      '</div>' +
+    '</div>'
+  ).join('');
+  document.getElementById('res').classList.add('on');
+}
+
+// ═══════════════════════════════════════════════════
+//  REPLAY
+// ═══════════════════════════════════════════════════
+function replay() {
+  stopRecording();
+  recordingBlob = null;
+
+  ducks.forEach(d => { d.x = 0; d.done = false; d.rank = 0; });
+  frame = 0; placed = 0; racing = false;
+
+  document.getElementById('res').classList.remove('on');
+  document.getElementById('dl-btn').style.display = 'none';
+  document.getElementById('rec-status').classList.remove('on');
+
+  triggerRace();
+}
+
+// ═══════════════════════════════════════════════════
+//  COUNTDOWN
+// ═══════════════════════════════════════════════════
+const pgrid = document.getElementById('pgrid');
+NAMES.forEach((n, i) => {
+  const d = document.createElement('div');
+  d.className = 'pcrd';
+  d.style.borderLeftColor = DUCK_COLORS[i % DUCK_COLORS.length];
+  d.textContent = n;
+  pgrid.appendChild(d);
+});
+
+function p2(n) { return String(n).padStart(2, '0'); }
+function tick() {
+  const ms = RACE_TS - Date.now();
+  if (ms <= 0) { triggerRace(); return; }
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor(ms % 3600000 / 60000);
+  const s = Math.floor(ms % 60000 / 1000);
+  document.getElementById('timer').textContent =
+    h ? p2(h) + ':' + p2(m) + ':' + p2(s) : p2(m) + ':' + p2(s);
+  setTimeout(tick, 500);
+}
+tick();
+
+function idle() { if (!racing) { render(); requestAnimationFrame(idle); } }
+idle();
+</script>
+</body>
+</html>
