@@ -154,7 +154,7 @@
   <h1>&#127956; Fantasy Golf Draft — Duck Race</h1>
   <div id="seed-box">
     Race seed: <strong id="sv">…</strong><br>
-    May 13 2026 · 10:30 AM CST
+    May 13 2026 · 10:30 AM CST · lanes &amp; speeds randomized
   </div>
 </div>
 
@@ -182,7 +182,8 @@
 
 <script>
 // ═══════════════════════════════════════════════════
-//  CONFIG  ← edit NAMES here before hosting
+//  CONFIG  ← type names in ANY ORDER, the seed
+//  randomly shuffles who gets which duck lane
 // ═══════════════════════════════════════════════════
 const RACE_ISO = '2026-05-13T10:30:00-06:00';   // CST = UTC-6
 
@@ -229,12 +230,25 @@ document.getElementById('rseed').textContent = SEED;
 
 // ═══════════════════════════════════════════════════
 //  DUCK DATA (all RNG consumed here at page load)
+//  Names are shuffled first so the host can't game
+//  the assignment by controlling the order in CONFIG
 // ═══════════════════════════════════════════════════
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const SHUFFLED_NAMES = shuffle(NAMES);
+
 const SEG_FRAMES = 45;
 const SEG_COUNT  = 400;
 const BASE_V     = 0.60;
 
-const ducks = NAMES.map((name, i) => ({
+const ducks = SHUFFLED_NAMES.map((name, i) => ({
   name,
   color: DUCK_COLORS[i % DUCK_COLORS.length],
   bf   : 0.88 + rng() * 0.24,
